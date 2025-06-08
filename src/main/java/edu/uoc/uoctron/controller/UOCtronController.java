@@ -1,7 +1,9 @@
 package edu.uoc.uoctron.controller;
 
+import edu.uoc.uoctron.exception.ModelMainException;
 import edu.uoc.uoctron.model.ModelMain;
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -100,7 +102,12 @@ public class UOCtronController {
      * @param efficiency Efficiency of the plant (0.0 to 1.0)
      */
     private void addPlant(String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency) {
-        modelMain.addPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency);
+        try{
+
+            modelMain.addPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency);
+        }catch (ModelMainException m){
+            System.out.println(m);
+        }
     }
 
     /**
@@ -117,7 +124,7 @@ public class UOCtronController {
      * @return An array of power plants
      */
     public Object[] getPowerPlants() {
-        //TODO
+
         return modelMain.getPlants().toArray();
     }
 
@@ -126,15 +133,12 @@ public class UOCtronController {
      * @param blackoutStart The start time of the blackout
      */
     public void runBlackoutSimulation(LocalDateTime blackoutStart) {
-        //TODO
+        modelMain.runBlackoutSimulation(blackoutStart);
     }
 
-    /**
-     * Return the simulation results in JSON format.
-     */
+
     public JSONArray getSimulationResults() {
-        //TODO
-        return null;
+        return new JSONArray(modelMain.getSimulationResults());
     }
 
 }

@@ -14,7 +14,7 @@
         <font>
             <Font size="14.0" />
         </font></Label>
-    <Label alignment="TOP_CENTER" layoutX="97.0" layoutY="167.0" prefHeight="300.0" prefWidth="459.0" styleClass="credits-text" text="Name Surname1 Surname2 [username@uoc.edu]" textAlignment="CENTER">
+    <Label alignment="TOP_CENTER" layoutX="97.0" layoutY="167.0" prefHeight="300.0" prefWidth="459.0" styleClass="credits-text" text="Guillermo Neira Molina [gneira@uoc.edu]" textAlignment="CENTER">
         <font>
             <Font size="14.0" />
         </font></Label>

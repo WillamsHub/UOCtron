@@ -1,39 +1,60 @@
 package edu.uoc.uoctron.model;
 
+import edu.uoc.uoctron.exception.ModelMainException;
+import org.json.JSONArray;
+
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.LinkedList;
 
 public class ModelMain {
 
-    LinkedList<PowerPlants> plants = new LinkedList<>();
-    LinkedList<DemandMinute> demandMinute = new LinkedList<>();
-    LinkedList<SimulaitonResults> simulationResults = new LinkedList<>();
+    LinkedList<PowerPlants> plants;
+    LinkedList<DemandMinute> demandMinute;
+    SimulationResults simulationResults;
+
+
 
     public ModelMain(){
 
+        plants = new LinkedList<>();
+        demandMinute = new LinkedList<>();
+
+
+
     }
-    public void addPlant(String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency){
+    public void addPlant(String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency) throws ModelMainException{
         switch (type){
             case "NUCLEAR":
                 plants.add(new NuclearPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "SOLAR":
                 plants.add(new SolarPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "WIND":
                 plants.add(new WindPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "HYDRO":
                 plants.add(new HydroPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "GEOTHERMAL":
                 plants.add(new GeothermalPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "COMBINED_CYCLE":
                 plants.add(new CombinedCyclePlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "COAL":
                 plants.add(new CoalPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "BIOMASS":
                 plants.add(new BiomassPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
             case "FUEL_GAS":
                 plants.add(new FuelGasPlant(type, name, latitude, longitude, city, maxCapacityMW, efficiency));
+                break;
 
             default:
+                throw new ModelMainException(ModelMainException.ERROR_NULL_PLANT);
         }
 
     }
@@ -58,11 +79,23 @@ public class ModelMain {
         this.demandMinute = demandMinute;
     }
 
-    public LinkedList<SimulaitonResults> getSimulationResults() {
-        return simulationResults;
+    public String getSimulationResults() {
+
+        return simulationResults.results.toString();
     }
 
-    public void setSimulationResults(LinkedList<SimulaitonResults> simulationResults) {
-        this.simulationResults = simulationResults;
+
+    public void runBlackoutSimulation(LocalDateTime blackoutStart){
+
+        simulationResults = new SimulationResults(blackoutStart,  this.plants, this.demandMinute);
+        simulationResults.simulate();
+
+
+    }
+
+    @Override
+    public String toString() {
+
+        return simulationResults.results.toString();
     }
 }

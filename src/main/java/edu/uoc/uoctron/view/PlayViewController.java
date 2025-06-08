@@ -203,7 +203,7 @@ public class PlayViewController {
         // Primero obtener todos los tipos
         for (int i = 0; i < results.length(); i++) {
             JSONObject obj = results.getJSONObject(i);
-            JSONObject genByType = obj.getJSONObject("generatedByTypeMW");
+            JSONObject genByType = obj.getJSONObject("generatedByType");
             allTypesSet.addAll(genByType.keySet());
         }
         List<String> sortedTypes = new ArrayList<>(allTypesSet);
@@ -220,9 +220,9 @@ public class PlayViewController {
         demandSeries.setName("Expected Demand");
 
         for (int i = 0; i < results.length(); i++) {
-            JSONObject result = results.getJSONObject(i);
-            double expected = result.getDouble("expectedDemandMW");
-            JSONObject genByType = result.getJSONObject("generatedByTypeMW");
+            JSONObject result =  results.getJSONObject(i);
+            double expected = result.getDouble("expectedDemand");
+            JSONObject genByType = result.getJSONObject("generatedByType");
 
             demandSeries.getData().add(new XYChart.Data<>(i, expected));
 
