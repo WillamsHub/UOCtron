@@ -2,9 +2,12 @@ package edu.uoc.uoctron.model;
 
 import edu.uoc.uoctron.exception.ModelMainException;
 import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.LinkedList;
 
 public class ModelMain {
@@ -19,6 +22,7 @@ public class ModelMain {
 
         plants = new LinkedList<>();
         demandMinute = new LinkedList<>();
+        simulationResults = new SimulationResults(LocalDateTime.now(), plants, demandMinute);
 
 
 
@@ -81,7 +85,7 @@ public class ModelMain {
 
     public String getSimulationResults() {
 
-        return simulationResults.results.toString();
+        return simulationResults.getSimulationResults().toString();
     }
 
 
@@ -90,12 +94,7 @@ public class ModelMain {
         simulationResults = new SimulationResults(blackoutStart,  this.plants, this.demandMinute);
         simulationResults.simulate();
 
-
     }
 
-    @Override
-    public String toString() {
 
-        return simulationResults.results.toString();
-    }
 }

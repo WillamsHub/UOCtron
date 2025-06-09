@@ -8,47 +8,43 @@ import java.util.*;
 
 public class SimulationResults {
 
-    LinkedList<Result> results;
-    public static class Result {
-        private LocalDateTime time;
-        private double generatedMW;
-        private double expectedDemand;
-        private double averageStability;
-        private Map<String, Double> generatedByTypeMW;
-
-        public Result(LocalDateTime time, double generatedMW, double expectedDemand,
-                      double averageStability, Map<String, Double> generatedByTypeMW) {
-            this.time = time;
-            this.generatedMW = generatedMW;
-            this.expectedDemand = expectedDemand;
-            this.averageStability = averageStability;
-            this.generatedByTypeMW = new HashMap<>(generatedByTypeMW);
-        }
-
-        public LocalDateTime getTime() { return time; }
-        public double getGeneratedMW() { return generatedMW; }
-        public double getExpectedDemand() { return expectedDemand; }
-        public double getAverageStability() { return averageStability; }
-        public Map<String, Double> getGeneratedByTypeMW() { return generatedByTypeMW; }
-
-    }
-
-    private LocalDateTime blackoutStart;
-    private LinkedList<PowerPlants> powerPlants;
-    private LinkedList<DemandMinute> demandMinutes;
-
+    public LocalDateTime blackoutStart;
+    public LinkedList<PowerPlants> powerPlants;
+    public LinkedList<DemandMinute> demandMinutes;
+    public Result result = new Result();
+    private LinkedList<Result> results =new LinkedList<>();
     public SimulationResults(LocalDateTime blackoutStart,
                              LinkedList<PowerPlants> powerPlants,
                              LinkedList<DemandMinute> demandMinutes) {
+        setBlackoutStart(blackoutStart);
+        setPowerPlants(powerPlants);
+        setDemandMinutes(demandMinutes);
+    }
+    public LocalDateTime getBlackoutStart() {
+        return this.blackoutStart;
+    }
+    private void setBlackoutStart(LocalDateTime blackoutStart) {
         this.blackoutStart = blackoutStart;
+    }
+    public LinkedList<PowerPlants> getPowerPlants() {
+        return this.powerPlants;
+    }
+    private void setPowerPlants(LinkedList<PowerPlants> powerPlants){
         this.powerPlants = powerPlants;
+    }
+    public LinkedList<DemandMinute> getDemandMinutes(){
+        return this.demandMinutes;
+    }
+    private void setDemandMinutes(LinkedList<DemandMinute> demandMinutes){
         this.demandMinutes = demandMinutes;
     }
 
-    public LinkedList<Result> simulate() {
-        if (results != null) return results;
+    public LinkedList<Result> getResult() {
+        return this.results;
+    }
 
-        results = new LinkedList<>();
+    public void simulate() {
+
 
         for (int minuteOffset = 0; minuteOffset < 2160; minuteOffset++) {
             LocalDateTime currentTime = blackoutStart.plusMinutes(minuteOffset);
@@ -67,10 +63,9 @@ public class SimulationResults {
                     selection.generatedByType
             );
 
-            results.add(result);
+            this.results.add(result);
         }
 
-        return results;
     }
 
     private double getDemandForMinute(int minuteOffset) {
@@ -289,10 +284,12 @@ public class SimulationResults {
     }
 
     public LinkedList<Result> getSimulationResults(){
+
         return this.results;
     }
     @Override
     public String toString() {
+
         if (results == null) simulate();
 
         JSONArray jsonArray = new JSONArray();
@@ -313,6 +310,6 @@ public class SimulationResults {
             jsonArray.put(obj);
         }
 
-        return jsonArray.toString(2);
+        return jsonArray.toString(0);
     }
 }

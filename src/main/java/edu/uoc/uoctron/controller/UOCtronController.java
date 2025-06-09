@@ -1,7 +1,10 @@
 package edu.uoc.uoctron.controller;
 
 import edu.uoc.uoctron.exception.ModelMainException;
+import edu.uoc.uoctron.model.DemandMinute;
 import edu.uoc.uoctron.model.ModelMain;
+import edu.uoc.uoctron.model.PowerPlants;
+import edu.uoc.uoctron.model.SimulationResults;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -10,10 +13,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 
 public class UOCtronController {
 
     private final ModelMain modelMain;
+    //public SimulationResults simulationResults;
 
     public UOCtronController(String plansFile, String demandFile) {
         modelMain = new ModelMain();
@@ -24,6 +31,8 @@ public class UOCtronController {
     private void initData(String plansFile, String demandFile) {
         loadPlants(plansFile);
         loadMinuteDemand(demandFile);
+      //  simulationResults = new SimulationResults();
+
     }
 
     /**
@@ -127,6 +136,9 @@ public class UOCtronController {
 
         return modelMain.getPlants().toArray();
     }
+    public LinkedList<DemandMinute> getDemandMinute(){
+        return modelMain.getDemandMinute();
+    }
 
     /**
      * Simulate a blackout according to the given start time.
@@ -138,7 +150,10 @@ public class UOCtronController {
 
 
     public JSONArray getSimulationResults() {
+
+
         return new JSONArray(modelMain.getSimulationResults());
+
     }
 
 }
