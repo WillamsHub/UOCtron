@@ -24,8 +24,6 @@ public class ModelMain {
         demandMinute = new LinkedList<>();
         simulationResults = new SimulationResults(LocalDateTime.now(), plants, demandMinute);
 
-
-
     }
     public void addPlant(String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency) throws ModelMainException{
         switch (type){
@@ -71,27 +69,23 @@ public class ModelMain {
         return plants;
     }
 
-    public void setPlants(LinkedList<PowerPlants> plants) {
-        this.plants = plants;
-    }
+
 
     public LinkedList<DemandMinute> getDemandMinute() {
         return demandMinute;
     }
 
-    public void setDemandMinute(LinkedList<DemandMinute> demandMinute) {
-        this.demandMinute = demandMinute;
-    }
 
-    public String getSimulationResults() {
 
-        return simulationResults.getSimulationResults().toString();
+    public JSONArray getSimulationResults() {
+
+        return new JSONArray(simulationResults.getSimulationResults());
     }
 
 
     public void runBlackoutSimulation(LocalDateTime blackoutStart){
 
-        simulationResults = new SimulationResults(blackoutStart,  this.plants, this.demandMinute);
+        simulationResults = new SimulationResults(blackoutStart,  getPlants(), getDemandMinute());
         simulationResults.simulate();
 
     }

@@ -7,7 +7,7 @@ import java.util.Map;
 public class Result {
     private LocalDateTime time;
     private double generatedMW;
-    private double expectedDemand;
+    private double expectedDemandMW;
     private double averageStability;
     private Map<String, Double> generatedByTypeMW;
 
@@ -15,11 +15,11 @@ public class Result {
 
     }
 
-    public Result(LocalDateTime time, double generatedMW, double expectedDemand,
+    public Result(LocalDateTime time, double generatedMW, double expectedDemandMW,
                   double averageStability, Map<String, Double> generatedByTypeMW) {
         this.time = time;
         this.generatedMW = generatedMW;
-        this.expectedDemand = expectedDemand;
+        this.expectedDemandMW = expectedDemandMW;
         this.averageStability = averageStability;
         this.generatedByTypeMW = new HashMap<>(generatedByTypeMW);
     }
@@ -28,8 +28,8 @@ public class Result {
         return time; }
     public double getGeneratedMW() {
         return generatedMW; }
-    public double getExpectedDemand() {
-        return expectedDemand; }
+    public double getExpectedDemandMW() {
+        return expectedDemandMW; }
     public double getAverageStability() {
         return averageStability; }
     public Map<String, Double> getGeneratedByTypeMW() {

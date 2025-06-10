@@ -7,6 +7,7 @@ import edu.uoc.uoctron.model.PowerPlants;
 import edu.uoc.uoctron.model.SimulationResults;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONParserConfiguration;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -20,7 +21,7 @@ import java.util.LinkedList;
 public class UOCtronController {
 
     private final ModelMain modelMain;
-    //public SimulationResults simulationResults;
+
 
     public UOCtronController(String plansFile, String demandFile) {
         modelMain = new ModelMain();
@@ -151,8 +152,7 @@ public class UOCtronController {
 
     public JSONArray getSimulationResults() {
 
-
-        return new JSONArray(modelMain.getSimulationResults());
+        return modelMain.getSimulationResults();
 
     }
 

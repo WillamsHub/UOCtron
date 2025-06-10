@@ -295,17 +295,21 @@ public class SimulationResults {
         JSONArray jsonArray = new JSONArray();
         for (Result result : results) {
             JSONObject obj = new JSONObject();
-            obj.put("current_time", result.getTime().toString());
+            obj.put("time", result.getTime().toString());
             obj.put("generatedMW", result.getGeneratedMW());
-            obj.put("expectedDemand", result.getExpectedDemand());
+            obj.put("expectedDemandMW", result.getExpectedDemandMW());
             obj.put("averageStability", result.getAverageStability());
 
             Map<String, Double> generatedMap = result.getGeneratedByTypeMW();
-            if (generatedMap != null) {
-                obj.put("generatedByType", new JSONObject(generatedMap));
+
+            Optional.ofNullable(generatedMap)
+                    .map(map -> obj.put("generatedByTypeMW", new JSONObject(map)))
+                    .orElseGet(() -> obj.put("generatedByTypeMW", JSONObject.NULL));
+          /*  if (generatedMap != null) {
+                obj.put("generatedByTypeMW", new JSONObject(generatedMap));
             } else {
-                obj.put("generatedByType", JSONObject.NULL);
-            }
+                obj.put("generatedByTypeMW", JSONObject.NULL);
+            }*/
 
             jsonArray.put(obj);
         }
