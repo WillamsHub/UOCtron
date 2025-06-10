@@ -14,6 +14,8 @@ public class WindPlant extends PowerPlants{
 
     public WindPlant(String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency) {
         super(type, name, latitude, longitude, city, maxCapacityMW, efficiency);
+        super.setInitOperationHour(INIT_OPERATION_HOUR);
+        super.setFinishOperationHour(FINISH_OPERATION_HOUR);
     }
 
     public String getIcon() {
