@@ -30,9 +30,6 @@ public class FuelGasPlant extends PowerPlants{
     public LocalTime getFinishOperationHour(){
         return FINISH_OPERATION_HOUR;
     }
-    public LocalTime getRestartTime(){
-        return RESTART_TIME;
-    }
     public double getStability(){
         return STABILITY;
     }
