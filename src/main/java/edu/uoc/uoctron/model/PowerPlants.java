@@ -105,7 +105,7 @@ public abstract class PowerPlants {
     protected JSONObject toJSONObject() {
         JSONObject json = new JSONObject();
         json.put("name", getName());
-        json.put("type", Utils.toCapitalizedSentence(getType()));
+        json.put("type", Utils.snakeCaseToNormal(getType()));
         json.put("latitude", getLatitude());
         json.put("longitude", getLongitude());
         json.put("city", getCity());
