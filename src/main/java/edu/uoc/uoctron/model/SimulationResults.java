@@ -1,5 +1,7 @@
 package edu.uoc.uoctron.model;
 
+import edu.uoc.uoctron.utils.Utils;
+
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -260,6 +262,7 @@ public class SimulationResults {
             if (type.equals("Hydro")){
                 type += "electric";
             }
+            type = Utils.fromCamelOrPascalToSentence(type);
             generationByType.merge(type, plant.getMaxCapacityMW(), Double::sum);
         }
 
