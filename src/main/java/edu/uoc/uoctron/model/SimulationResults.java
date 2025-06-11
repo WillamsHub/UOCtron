@@ -16,14 +16,12 @@ public class SimulationResults {
     private static final double MIN_STABILITY = 0.7;
     public LocalDateTime currentTime;
 
-
     public SimulationResults(LocalDateTime blackoutStart, LinkedList<PowerPlants> powerPlants, LinkedList<DemandMinute> demandMinutes) {
         this.blackoutStart = blackoutStart;
         this.powerPlants = powerPlants;
         this.demandMinutes = demandMinutes;
         this.results = new ArrayList<>();
     }
-
 
     public List<Result> runSimulation() {
         return simulate();
@@ -42,8 +40,8 @@ public class SimulationResults {
             // Filtrar plantas disponibles para este momento
             List<PowerPlants> availablePlants = getAvailablePlants(currentTime);
 
-            // Seleccionar plantas para cubrir la demanda
-            List<PowerPlants> selectedPlants = selectPlantsForDemand(availablePlants, demand.getDemand(), currentTime);
+            // Seleccionar plantas para cubrir la demanda excluyendo tipos específicos
+            List<PowerPlants> selectedPlants = selectPlantsGreedy(availablePlants, demand.getDemand(), currentTime);
 
             // Calcular resultados
             double generatedMW = calculateTotalGeneration(selectedPlants);
@@ -68,12 +66,19 @@ public class SimulationResults {
         List<PowerPlants> available = new ArrayList<>();
 
         for (PowerPlants plant : powerPlants) {
-            if (isPlantOperational(plant, currentTime)) {
+            if (isPlantOperational(plant, currentTime) && isPlantAllowed(plant)) {
                 available.add(plant);
             }
         }
 
         return available;
+    }
+
+    private boolean isPlantAllowed(PowerPlants plant) {
+        // Excluir específicamente Biomass, Nuclear y FuelGas
+        return !(plant instanceof BiomassPlant ||
+                plant instanceof NuclearPlant ||
+                plant instanceof FuelGasPlant);
     }
 
     private boolean isPlantOperational(PowerPlants plant, LocalDateTime currentTime) {
@@ -102,139 +107,112 @@ public class SimulationResults {
 
         // Todas las demás plantas: 00:00-23:59
         return true;
-
-
-
-
     }
 
-    private List<PowerPlants> selectPlantsForDemand(List<PowerPlants> availablePlants, double demandMW, LocalDateTime currentTime) {
-        // Ordenar plantas por prioridad
-        List<PowerPlants> renewables = new ArrayList<>();
-        List<PowerPlants> nuclear = new ArrayList<>();
-        List<PowerPlants> thermal = new ArrayList<>();
-
-        for (PowerPlants plant : availablePlants) {
-            if (plant instanceof SolarPlant || plant instanceof WindPlant ||
-                    plant instanceof GeothermalPlant || plant instanceof HydroPlant) {
-                renewables.add(plant);
-            } else if (plant instanceof NuclearPlant) {
-                nuclear.add(plant);
-            } else {
-                thermal.add(plant);
-            }
-        }
-
-        // Ordenar por capacidad máxima (descendente) dentro de cada categoría
-        renewables.sort((a, b) -> Double.compare(b.getMaxCapacityMW(), a.getMaxCapacityMW()));
-        nuclear.sort((a, b) -> Double.compare(b.getMaxCapacityMW(), a.getMaxCapacityMW()));
-        thermal.sort((a, b) -> Double.compare(b.getMaxCapacityMW(), a.getMaxCapacityMW()));
-
+    private List<PowerPlants> selectPlantsGreedy(List<PowerPlants> availablePlants, double demandMW, LocalDateTime currentTime) {
         List<PowerPlants> selectedPlants = new ArrayList<>();
-        double currentGeneration = 0;
+        double currentGeneration = 0.0;
 
-        // 1. Añadir renovables primero
-        for (PowerPlants plant : renewables) {
-            if (currentGeneration < demandMW) {
-                selectedPlants.add(plant);
-                currentGeneration += plant.getMaxCapacityMW();
-            }
-        }
+        // Crear copia de plantas disponibles para no modificar la original
+        List<PowerPlants> remainingPlants = new ArrayList<>(availablePlants);
 
-        // 2. Añadir nucleares si es necesario
-        if (currentGeneration < demandMW) {
-            for (PowerPlants plant : nuclear) {
-                if (currentGeneration < demandMW) {
-                    // Verificar si añadir esta planta sobrepasa la demanda
-                    double newGeneration = currentGeneration + plant.getMaxCapacityMW();
-                    if (newGeneration > demandMW) {
-                        // Quitar renovables hasta que se ajuste
-                        selectedPlants = adjustSelection(selectedPlants, plant, demandMW);
-                        break;
-                    } else {
-                        selectedPlants.add(plant);
-                        currentGeneration = newGeneration;
-                    }
+        // Algoritmo greedy: seleccionar plantas hasta cubrir la demanda
+        while (currentGeneration < demandMW && !remainingPlants.isEmpty()) {
+            PowerPlants bestPlant = null;
+            double bestScore = -1;
+
+            // Encontrar la mejor planta basada en ratio eficiencia/capacidad y tipo
+            for (PowerPlants plant : remainingPlants) {
+                // Verificar nuevamente que la planta está permitida
+                if (!isPlantAllowed(plant)) {
+                    continue;
+                }
+
+                double score = calculatePlantScore(plant, demandMW - currentGeneration);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPlant = plant;
                 }
             }
-        }
 
-        // 3. Añadir térmicas si es necesario
-        currentGeneration = calculateTotalGeneration(selectedPlants);
-        if (currentGeneration < demandMW) {
-            for (PowerPlants plant : thermal) {
-                if (currentGeneration < demandMW) {
-                    double newGeneration = currentGeneration + plant.getMaxCapacityMW();
-                    if (newGeneration > demandMW) {
-                        selectedPlants = adjustSelection(selectedPlants, plant, demandMW);
-                        break;
-                    } else {
-                        selectedPlants.add(plant);
-                        currentGeneration = newGeneration;
-                    }
-                }
+            if (bestPlant != null) {
+                selectedPlants.add(bestPlant);
+                currentGeneration += bestPlant.getMaxCapacityMW() * bestPlant.getEfficiency();
+                remainingPlants.remove(bestPlant);
+            } else {
+                break;
             }
         }
 
-        // Verificar que la estabilidad sea >= 70%
+        // Verificar y ajustar para estabilidad mínima
         if (calculateWeightedStability(selectedPlants) < MIN_STABILITY) {
-            selectedPlants = adjustForStability(selectedPlants, demandMW);
+            selectedPlants = ensureMinimumStability(selectedPlants, remainingPlants, demandMW);
         }
 
         return selectedPlants;
     }
 
-    private List<PowerPlants> adjustSelection(List<PowerPlants> currentSelection, PowerPlants newPlant, double demandMW) {
-        List<PowerPlants> adjusted = new ArrayList<>(currentSelection);
-        adjusted.add(newPlant);
+    private double calculatePlantScore(PowerPlants plant, double remainingDemand) {
+        double generation = plant.getMaxCapacityMW() * plant.getEfficiency();
+        double efficiency = plant.getEfficiency();
+        double stability = plant.getStability();
 
-        // Quitar renovables hasta que la generación no sobrepase la demanda
-        double totalGeneration = calculateTotalGeneration(adjusted);
+        // Score base: generación * eficiencia * estabilidad
+        double baseScore = generation * efficiency * stability;
 
-        Iterator<PowerPlants> iterator = adjusted.iterator();
-        while (iterator.hasNext() && totalGeneration > demandMW) {
-            PowerPlants plant = iterator.next();
-            if (plant instanceof SolarPlant || plant instanceof WindPlant ||
-                    plant instanceof GeothermalPlant || plant instanceof HydroPlant) {
+        // Bonus por tipo de planta (preferencias estratégicas)
+        double typeBonus = 1.0;
+        if (plant instanceof HydroPlant) {
+            typeBonus = 2.0; // Renovable y muy estable
+        } else if (plant instanceof CombinedCyclePlant) {
+            typeBonus = 1.8; // Muy eficiente
+        } else if (plant instanceof CoalPlant) {
+            typeBonus = 1.5; // Base load confiable
+        } else if (plant instanceof WindPlant) {
+            typeBonus = 1.6; // Renovable
+        } else if (plant instanceof SolarPlant) {
+            typeBonus = 1.4; // Renovable pero limitada
+        } else if (plant instanceof GeothermalPlant) {
+            typeBonus = 1.3; // Estable
+        } else {
+            typeBonus = 1.0; // Otros tipos permitidos
+        }
 
-                double generationWithoutThis = totalGeneration - plant.getMaxCapacityMW();
-                if (generationWithoutThis >= demandMW * 0.95) { // Mantener al menos 95% de la demanda
-                    iterator.remove();
-                    totalGeneration = generationWithoutThis;
-                }
+        // Penalizar si la planta genera mucho más de lo necesario
+        if (generation > remainingDemand * 2) {
+            typeBonus *= 0.7;
+        }
+
+        return baseScore * typeBonus;
+    }
+
+    private List<PowerPlants> ensureMinimumStability(List<PowerPlants> selectedPlants, List<PowerPlants> availablePlants, double demandMW) {
+        List<PowerPlants> adjusted = new ArrayList<>(selectedPlants);
+        List<PowerPlants> remaining = new ArrayList<>();
+
+        // Filtrar plantas restantes para incluir solo las permitidas
+        for (PowerPlants plant : availablePlants) {
+            if (isPlantAllowed(plant)) {
+                remaining.add(plant);
+            }
+        }
+
+        // Ordenar plantas restantes por estabilidad (mayor primero)
+        remaining.sort((a, b) -> Double.compare(b.getStability(), a.getStability()));
+
+        // Añadir plantas con alta estabilidad hasta alcanzar el mínimo
+        for (PowerPlants plant : remaining) {
+            adjusted.add(plant);
+            if (calculateWeightedStability(adjusted) >= MIN_STABILITY) {
+                break;
             }
         }
 
         return adjusted;
     }
 
-    private List<PowerPlants> adjustForStability(List<PowerPlants> selectedPlants, double demandMW) {
-        // Implementar lógica para ajustar selección manteniendo estabilidad >= 70%
-        // Esta es una implementación simplificada
-        List<PowerPlants> adjusted = new ArrayList<>(selectedPlants);
-
-        // Ordenar por estabilidad descendente
-        adjusted.sort((a, b) -> Double.compare(b.getStability(), a.getStability()));
-
-        // Reconstruir selección priorizando plantas con mayor estabilidad
-        List<PowerPlants> newSelection = new ArrayList<>();
-        double currentGeneration = 0;
-
-        for (PowerPlants plant : adjusted) {
-            newSelection.add(plant);
-            currentGeneration += plant.getMaxCapacityMW();
-
-            if (calculateWeightedStability(newSelection) >= MIN_STABILITY &&
-                    currentGeneration >= demandMW * 0.95) {
-                break;
-            }
-        }
-
-        return newSelection;
-    }
-
     private double calculateTotalGeneration(List<PowerPlants> plants) {
-        return plants.stream().mapToDouble(PowerPlants::getMaxCapacityMW).sum();
+        return plants.stream().mapToDouble(plant -> plant.getMaxCapacityMW() * plant.getEfficiency()).sum();
     }
 
     private double calculateWeightedStability(List<PowerPlants> plants) {
@@ -244,11 +222,10 @@ public class SimulationResults {
         if (totalGeneration == 0) return 0;
 
         double weightedStability = 0;
-        int index = 0;
         for (PowerPlants plant : plants) {
-            double weight = plant.getMaxCapacityMW() / totalGeneration;
-            weightedStability += powerPlants.get(index).getStability() * weight;
-            index ++;
+            double plantGeneration = plant.getMaxCapacityMW() * plant.getEfficiency();
+            double weight = plantGeneration / totalGeneration;
+            weightedStability += plant.getStability() * weight;
         }
 
         return weightedStability;
@@ -263,7 +240,10 @@ public class SimulationResults {
                 type += "electric";
             }
             type = Utils.fromCamelOrPascalToSentence(type);
-            generationByType.merge(type, plant.getMaxCapacityMW(), Double::sum);
+
+            // Calcular la generación real de la planta (capacidad * eficiencia)
+            double plantGeneration = plant.getMaxCapacityMW() * plant.getEfficiency();
+            generationByType.merge(type, plantGeneration, Double::sum);
         }
 
         return generationByType;
