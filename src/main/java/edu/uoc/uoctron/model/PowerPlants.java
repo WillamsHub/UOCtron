@@ -84,6 +84,9 @@ public abstract class PowerPlants {
     }
 
     public LocalTime getRestartTime() {
+        if (!getType().equals("NUCLEAR")) {
+            return restartTime.plusMinutes(1);
+        }
         return restartTime;
     }
 
