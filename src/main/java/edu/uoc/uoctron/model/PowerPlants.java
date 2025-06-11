@@ -1,5 +1,7 @@
 package edu.uoc.uoctron.model;
 
+import edu.uoc.uoctron.utils.Utils;
+import org.json.JSONObject;
 import java.time.LocalTime;
 
 public abstract class PowerPlants {
@@ -95,5 +97,17 @@ public abstract class PowerPlants {
 
     public void setStability(double stability) {
         this.stability = stability;
+    }
+
+    protected JSONObject toJSONObject() {
+        JSONObject json = new JSONObject();
+        json.put("name", getName());
+        json.put("type", Utils.toCapitalizedSentence(getType()));
+        json.put("latitude", getLatitude());
+        json.put("longitude", getLongitude());
+        json.put("city", getCity());
+        json.put("maxCapacityMW", getMaxCapacityMW());
+        json.put("efficiency", getEfficiency());
+        return json;
     }
 }

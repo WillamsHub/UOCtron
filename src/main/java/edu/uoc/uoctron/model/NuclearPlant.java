@@ -1,5 +1,7 @@
 package edu.uoc.uoctron.model;
 
+import org.json.JSONObject;
+
 import java.time.LocalTime;
 
 public class NuclearPlant extends PowerPlants{
@@ -43,14 +45,13 @@ public class NuclearPlant extends PowerPlants{
 
     @Override
     public String toString() {
-        return "{\n\"type\": " + getType() + ",\n" +
-                "\"latitude\": " + getLatitude() + ",\n" +
-                "\"longitude\": " + getLongitude() + ",\n" +
-                "\"icon\": " + getIcon() + ",\n" +
-                "}\n{" +
-                "\"init_operation_hour\": " + getInitOperationHour() + ",\n" +
-                "\"finish_operation_hour\": " + getFinishOperationHour() + ",\n" +
-                "\"restart_time\": " + getRestartTime() + ",\n" +
-                "\"stability\": "+ getStability() + "\n}";
+        JSONObject json = super.toJSONObject();
+        json.put("icon", getIcon());
+        json.put("init_operation_hour", getInitOperationHour());
+        json.put("finish_operation_hour", getFinishOperationHour());
+        json.put("restart_time", getRestartTime());
+        json.put("stability", getStability());
+        return json.toString(2);
     }
+
 }
