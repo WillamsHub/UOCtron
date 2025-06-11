@@ -11,7 +11,6 @@ public class NuclearPlant extends PowerPlants{
     static final LocalTime RESTART_TIME = LocalTime.of(23,59);
     static final double STABILITY = 1.0;
     String icon = "nuclear.png";
-    double maxCapacityMW;
 
     public NuclearPlant(String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency){
         super(type, name, latitude, longitude, city, maxCapacityMW, efficiency);
@@ -32,10 +31,6 @@ public class NuclearPlant extends PowerPlants{
     public double getStability(){
         return STABILITY;
     }
-    public void setMaxCapacityMW(double maxCapacityMW){
-        this.maxCapacityMW = maxCapacityMW;
-    }
-
     public double getGeneratedMW() {
         return maxCapacityMW;
     }
@@ -49,6 +44,7 @@ public class NuclearPlant extends PowerPlants{
         json.put("finish_operation_hour", getFinishOperationHour());
         json.put("restart_time", getRestartTime());
         json.put("stability", getStability());
+        json.put("maxCapacityMW", getMaxCapacityMW());
         return json.toString(2);
     }
 
