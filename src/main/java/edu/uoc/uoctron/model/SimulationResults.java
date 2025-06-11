@@ -257,6 +257,9 @@ public class SimulationResults {
 
         for (PowerPlants plant : plants) {
             String type = plant.getClass().getSimpleName().replace("Plant", "");
+            if (type.equals("Hydro")){
+                type += "electric";
+            }
             generationByType.merge(type, plant.getMaxCapacityMW(), Double::sum);
         }
 
@@ -283,6 +286,7 @@ public class SimulationResults {
             Map<String, Double> genByType = result.getGeneratedByTypeMW();
             int typeCount = 0;
             for (Map.Entry<String, Double> entry : genByType.entrySet()) {
+
                 jsonBuilder.append("      \"").append(entry.getKey()).append("\": ")
                         .append(String.format("%.2f", entry.getValue()));
                 if (++typeCount < genByType.size()) {
