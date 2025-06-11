@@ -79,7 +79,7 @@ public class ModelMain {
 
     public JSONArray getSimulationResults() {
 
-        return new JSONArray(simulationResults.getSimulationResults());
+        return new JSONArray(simulationResults.getResults());
     }
 
 

@@ -1,142 +1,64 @@
 package edu.uoc.uoctron.model;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
 import java.util.*;
 
 public class SimulationResults {
-
     public LocalDateTime blackoutStart;
     public LinkedList<PowerPlants> powerPlants;
     public LinkedList<DemandMinute> demandMinutes;
-    public Result result = new Result();
-    private LinkedList<Result> results =new LinkedList<>();
-    public SimulationResults(LocalDateTime blackoutStart,
-                             LinkedList<PowerPlants> powerPlants,
-                             LinkedList<DemandMinute> demandMinutes) {
-        setBlackoutStart(blackoutStart);
-        setPowerPlants(powerPlants);
-        setDemandMinutes(demandMinutes);
-    }
-    public LocalDateTime getBlackoutStart() {
-        return this.blackoutStart;
-    }
-    private void setBlackoutStart(LocalDateTime blackoutStart) {
+    public List<Result> results;
+    private static final double MIN_STABILITY = 0.7;
+    public LocalDateTime currentTime;
+
+
+    public SimulationResults(LocalDateTime blackoutStart, LinkedList<PowerPlants> powerPlants, LinkedList<DemandMinute> demandMinutes) {
         this.blackoutStart = blackoutStart;
-    }
-    public LinkedList<PowerPlants> getPowerPlants() {
-        return this.powerPlants;
-    }
-    private void setPowerPlants(LinkedList<PowerPlants> powerPlants){
         this.powerPlants = powerPlants;
-    }
-    public LinkedList<DemandMinute> getDemandMinutes(){
-        return this.demandMinutes;
-    }
-    private void setDemandMinutes(LinkedList<DemandMinute> demandMinutes){
         this.demandMinutes = demandMinutes;
+        this.results = new ArrayList<>();
     }
 
-    public LinkedList<Result> getResult() {
-        return this.results;
+
+    public List<Result> runSimulation() {
+        return simulate();
     }
 
-    public void simulate() {
-        LocalTime currentTime = LocalTime.of(0,0);
+    public List<Result> simulate() {
+        results.clear();
+        this.currentTime = blackoutStart;
 
-        for (int i=0; i< getDemandMinutes().size(); i++ ){
-            DemandMinute demandMinute = getDemandMinutes().get(i);
+        for (DemandMinute demand : demandMinutes) {
+            // Filtrar plantas disponibles para este momento
+            List<PowerPlants> availablePlants = getAvailablePlants(currentTime);
 
-            int offset = demandMinute.getTime().getMinute();
-            currentTime = currentTime.plusMinutes(offset);
-            LocalDateTime currentTimePlusOffset = blackoutStart.plusMinutes(offset);
+            // Seleccionar plantas para cubrir la demanda
+            List<PowerPlants> selectedPlants = selectPlantsForDemand(availablePlants, demand.getDemand(), currentTime);
 
-            double expectedDemand = getDemandForMinute(offset);
-            List<PowerPlants> availablePlants = getAvailablePlants(offset);
+            // Calcular resultados
+            double generatedMW = calculateTotalGeneration(selectedPlants);
+            double averageStability = calculateWeightedStability(selectedPlants);
+            Map<String, Double> generatedByType = calculateGenerationByType(selectedPlants);
 
-            PlantSelection selection = selectOptimalPlants(availablePlants, expectedDemand,offset, currentTime);
+            // Crear resultado para este minuto
+            Result result = new Result(currentTime, generatedMW, demand.getDemand(), averageStability, generatedByType);
+            results.add(result);
 
-            Result result = new Result(
-                    currentTimePlusOffset,
-                    selection.totalGenerated,
-                    expectedDemand,
-                    selection.averageStability,
-                    selection.generatedByType
-            );
-
-            if (result.getAverageStability() >= 0.7) {
-
-                this.results.add(result);
-            }
+            // Avanzar al siguiente minuto
+            currentTime = currentTime.plusMinutes(1);
         }
 
-       /* getDemandMinutes().forEach(
-                demandMinute -> {
-                    int offset = demandMinute.getTime().getMinute();
-                    currentTime = currentTime.plusMinutes(offset);
-                    LocalDateTime currentTimePlusOffset = blackoutStart.plusMinutes(offset);
-
-                    double expectedDemand = getDemandForMinute(offset);
-                    List<PowerPlants> availablePlants = getAvailablePlants(offset);
-
-                    PlantSelection selection = selectOptimalPlants(availablePlants, expectedDemand,offset, currentTime, currentTimePlusOffset);
-
-                    Result result = new Result(
-                            currentTimePlusOffset,
-                            selection.totalGenerated,
-                            expectedDemand,
-                            selection.averageStability,
-                            selection.generatedByType
-                    );
-
-                    if (result.getAverageStability() >= 0.7) {
-
-                        this.results.add(result);
-                    }
-
-
-                }
-        );*/
-
-        /*for (int minuteOffset = 0; minuteOffset < 2160; minuteOffset++) {
-            LocalDateTime currentTime = blackoutStart.plusMinutes(minuteOffset);
-
-            double expectedDemand = getDemandForMinute(minuteOffset);
-
-            List<PowerPlants> availablePlants = getAvailablePlants(minuteOffset);
-
-            PlantSelection selection = selectOptimalPlants(availablePlants, expectedDemand, minuteOffset);
-
-            Result result = new Result(
-                    currentTime,
-                    selection.totalGenerated,
-                    expectedDemand,
-                    selection.averageStability,
-                    selection.generatedByType
-            );
-
-            this.results.add(result);
-        }*/
-
+        return results;
     }
 
-    private double getDemandForMinute(int minuteOffset) {
-        int demandIndex = minuteOffset % 1440;
-
-        if (demandIndex < demandMinutes.size()) {
-            return demandMinutes.get(demandIndex).getDemand();
-        }
-        return 0.0;
-    }
-
-    private List<PowerPlants> getAvailablePlants(int minuteOffset) {
+    private List<PowerPlants> getAvailablePlants(LocalDateTime currentTime) {
         List<PowerPlants> available = new ArrayList<>();
 
         for (PowerPlants plant : powerPlants) {
-            if (isPlantAvailable(plant, minuteOffset)) {
+            if (isPlantOperational(plant, currentTime)) {
                 available.add(plant);
             }
         }
@@ -144,222 +66,241 @@ public class SimulationResults {
         return available;
     }
 
-    private boolean isPlantAvailable(PowerPlants plant, int minuteOffset) {
-        int restartTime = getRestartTime(plant);
-        return minuteOffset >= restartTime;
+    private boolean isPlantOperational(PowerPlants plant, LocalDateTime currentTime) {
+        // Verificar si la planta ha superado el tiempo de reinicio tras blackout
+        LocalTime restartTime = plant.getRestartTime();
+        LocalDateTime restartDateTime = blackoutStart.toLocalDate().atTime(restartTime);
+
+        // Si el tiempo de reinicio es menor que la hora del blackout, añadir un día
+        if (restartTime.isBefore(blackoutStart.toLocalTime())) {
+            restartDateTime = restartDateTime.plusDays(1);
+        }
+
+        if (currentTime.isBefore(restartDateTime)) {
+            return false;
+        }
+
+        // Verificar horario de operación
+        int hour = currentTime.getHour();
+        int minute = currentTime.getMinute();
+        int totalMinutes = hour * 60 + minute;
+
+        // Plantas solares: 07:00-18:59
+        if (plant instanceof SolarPlant) {
+            return totalMinutes >= 420 && totalMinutes <= 1139; // 7*60 a 18*60+59
+        }
+
+        // Todas las demás plantas: 00:00-23:59
+        return true;
+
+
+
+
     }
 
-    private int getRestartTime(PowerPlants plant) {
-        return switch (plant.getClass().getSimpleName()) {
-            case "SolarPlant", "WindPlant" -> 6; // 6 minutos
-            case "GeothermalPlant", "HydroPlant" -> 30; // 30 minutos (asumiendo tiempo intermedio)
-            case "NuclearPlant" -> 24 * 60; // 24 horas = 1440 minutos
-            case "CoalPlant" -> 8 * 60; // 8 horas = 480 minutos
-            case "CombinedCyclePlant" -> 2 * 60; // 2 horas = 120 minutos (más rápido que coal)
-            case "FuelGasPlant" -> 4 * 60; // 4 horas = 240 minutos
-            case "BiomassPlant" -> 6 * 60; // 6 horas = 360 minutos
-            default -> 0;
-        };
-    }
+    private List<PowerPlants> selectPlantsForDemand(List<PowerPlants> availablePlants, double demandMW, LocalDateTime currentTime) {
+        // Ordenar plantas por prioridad
+        List<PowerPlants> renewables = new ArrayList<>();
+        List<PowerPlants> nuclear = new ArrayList<>();
+        List<PowerPlants> thermal = new ArrayList<>();
 
-    private PlantSelection selectOptimalPlants(List<PowerPlants> availablePlants, double demandMW, int minuteOffset,LocalTime currentTime) {
-        // Ordenar plantas por prioridad: Solar/Wind -> Nuclear -> Coal/FuelGas
-        List<PowerPlants> sortedPlants = new ArrayList<>(availablePlants);
-      
-        sortedPlants.sort(this::comparePlantPriority);
-
-        PlantSelection selection = new PlantSelection();
-        double remainingDemand = demandMW;
-
-        // Seleccionar plantas una por una hasta cubrir la demanda o alcanzar estabilidad mínima
-        for (PowerPlants plant : sortedPlants) {
-            if (remainingDemand <= 0) break;
-
-            // Calcular cuánta energía puede aportar esta planta
-            double plantGeneration = Math.min(getPlantGeneratedMW(plant), remainingDemand);
-
-            // Crear una selección temporal para probar si mantiene la estabilidad
-            PlantSelection tempSelection = selection.copy();
-            tempSelection.addPlant(plant, plantGeneration);
-
-            // Verificar si la estabilidad promedio se mantiene >= 0.7
-            // ¿?¿? Cambiado a 0.5 porque sino no genera el grafico bien tal como esta en el PDF
-            if (tempSelection.averageStability >= 0.7 || selection.selectedPlants.isEmpty()) {
-                selection = tempSelection;
-                remainingDemand -= plantGeneration;
+        for (PowerPlants plant : availablePlants) {
+            if (plant instanceof SolarPlant || plant instanceof WindPlant ||
+                    plant instanceof GeothermalPlant || plant instanceof HydroPlant) {
+                renewables.add(plant);
+            } else if (plant instanceof NuclearPlant) {
+                nuclear.add(plant);
+            } else {
+                thermal.add(plant);
             }
         }
 
-        return selection;
-    }
+        // Ordenar por capacidad máxima (descendente) dentro de cada categoría
+        renewables.sort((a, b) -> Double.compare(b.getMaxCapacityMW(), a.getMaxCapacityMW()));
+        nuclear.sort((a, b) -> Double.compare(b.getMaxCapacityMW(), a.getMaxCapacityMW()));
+        thermal.sort((a, b) -> Double.compare(b.getMaxCapacityMW(), a.getMaxCapacityMW()));
 
-    private int comparePlantPriority(PowerPlants a, PowerPlants b) {
-        int priorityA = getPlantPriority(a);
-        int priorityB = getPlantPriority(b);
-
-        if (priorityA != priorityB) {
-            return Integer.compare(priorityA, priorityB);
-        }
-
-
-        return Double.compare(getPlantStability(b), getPlantStability(a));
-    }
-
-    private int getPlantPriority(PowerPlants plant) {
-        return switch (plant.getClass().getSimpleName()) {
-            case "SolarPlant", "WindPlant" -> 1;
-            case "GeothermalPlant", "HydroPlant" -> 2;
-            case "NuclearPlant" -> 3;
-            case "CombinedCyclePlant" -> 4;
-            case "FuelGasPlant" -> 5;
-            case "BiomassPlant" -> 6;
-            case "CoalPlant" -> 7;
-            default -> 8;
-        };
-    }
-
-    private static class PlantSelection {
         List<PowerPlants> selectedPlants = new ArrayList<>();
-        List<Double> plantGenerations = new ArrayList<>();
-        double totalGenerated = 0.0;
-        double totalStabilityWeight = 0.0;
-        double totalWeight = 0.0;
-        double averageStability = 0.0;
-        Map<String, Double> generatedByType = new HashMap<>();
+        double currentGeneration = 0;
 
-        void addPlant(PowerPlants plant, double generation) {
-            selectedPlants.add(plant);
-            plantGenerations.add(generation);
-            totalGenerated += generation;
-
-            // Actualizar estabilidad promedio ponderada
-            double weight = generation;
-            double plantStability = getPlantStability(plant);
-            totalStabilityWeight += plantStability * weight;
-            totalWeight += weight;
-
-            if (totalWeight > 0) {
-                averageStability = totalStabilityWeight / totalWeight;
+        // 1. Añadir renovables primero
+        for (PowerPlants plant : renewables) {
+            if (currentGeneration < demandMW) {
+                selectedPlants.add(plant);
+                currentGeneration += plant.getMaxCapacityMW();
             }
-
-            // Actualizar generación por tipo
-            String plantType = getPlantTypeName(plant);
-            generatedByType.put(plantType,
-                    generatedByType.getOrDefault(plantType, 0.0) + generation);
         }
 
-        PlantSelection copy() {
-            PlantSelection copy = new PlantSelection();
-            copy.selectedPlants = new ArrayList<>(this.selectedPlants);
-            copy.plantGenerations = new ArrayList<>(this.plantGenerations);
-            copy.totalGenerated = this.totalGenerated;
-            copy.totalStabilityWeight = this.totalStabilityWeight;
-            copy.totalWeight = this.totalWeight;
-            copy.averageStability = this.averageStability;
-            copy.generatedByType = new HashMap<>(this.generatedByType);
-            return copy;
+        // 2. Añadir nucleares si es necesario
+        if (currentGeneration < demandMW) {
+            for (PowerPlants plant : nuclear) {
+                if (currentGeneration < demandMW) {
+                    // Verificar si añadir esta planta sobrepasa la demanda
+                    double newGeneration = currentGeneration + plant.getMaxCapacityMW();
+                    if (newGeneration > demandMW) {
+                        // Quitar renovables hasta que se ajuste
+                        selectedPlants = adjustSelection(selectedPlants, plant, demandMW);
+                        break;
+                    } else {
+                        selectedPlants.add(plant);
+                        currentGeneration = newGeneration;
+                    }
+                }
+            }
         }
 
-        private String getPlantTypeName(PowerPlants plant) {
-            String className = plant.getClass().getSimpleName();
-            // Convertir "SolarPlant" a "Solar", etc.
-            return className.replace("Plant", "");
+        // 3. Añadir térmicas si es necesario
+        currentGeneration = calculateTotalGeneration(selectedPlants);
+        if (currentGeneration < demandMW) {
+            for (PowerPlants plant : thermal) {
+                if (currentGeneration < demandMW) {
+                    double newGeneration = currentGeneration + plant.getMaxCapacityMW();
+                    if (newGeneration > demandMW) {
+                        selectedPlants = adjustSelection(selectedPlants, plant, demandMW);
+                        break;
+                    } else {
+                        selectedPlants.add(plant);
+                        currentGeneration = newGeneration;
+                    }
+                }
+            }
         }
+
+        // Verificar que la estabilidad sea >= 70%
+        if (calculateWeightedStability(selectedPlants) < MIN_STABILITY) {
+            selectedPlants = adjustForStability(selectedPlants, demandMW);
+        }
+
+        return selectedPlants;
     }
 
-    /**
-     * Obtiene la estabilidad de una planta mediante downcasting
-     * @param plant La planta de la cual obtener la estabilidad
-     * @return El valor de estabilidad de la planta
-     */
-    private static double getPlantStability(PowerPlants plant) {
-        switch (plant.getClass().getSimpleName()) {
-            case "SolarPlant":
-                return ((SolarPlant) plant).getStability();
-            case "WindPlant":
-                return ((WindPlant) plant).getStability();
-            case "GeothermalPlant":
-                return ((GeothermalPlant) plant).getStability();
-            case "HydroPlant":
-                return ((HydroPlant) plant).getStability();
-            case "NuclearPlant":
-                return ((NuclearPlant) plant).getStability();
-            case "CoalPlant":
-                return ((CoalPlant) plant).getStability();
-            case "CombinedCyclePlant":
-                return ((CombinedCyclePlant) plant).getStability();
-            case "FuelGasPlant":
-                return ((FuelGasPlant) plant).getStability();
-            case "BiomassPlant":
-                return ((BiomassPlant) plant).getStability();
-            default:
-                // Valor por defecto si el tipo no es reconocido
-                return 0.0;
+    private List<PowerPlants> adjustSelection(List<PowerPlants> currentSelection, PowerPlants newPlant, double demandMW) {
+        List<PowerPlants> adjusted = new ArrayList<>(currentSelection);
+        adjusted.add(newPlant);
+
+        // Quitar renovables hasta que la generación no sobrepase la demanda
+        double totalGeneration = calculateTotalGeneration(adjusted);
+
+        Iterator<PowerPlants> iterator = adjusted.iterator();
+        while (iterator.hasNext() && totalGeneration > demandMW) {
+            PowerPlants plant = iterator.next();
+            if (plant instanceof SolarPlant || plant instanceof WindPlant ||
+                    plant instanceof GeothermalPlant || plant instanceof HydroPlant) {
+
+                double generationWithoutThis = totalGeneration - plant.getMaxCapacityMW();
+                if (generationWithoutThis >= demandMW * 0.95) { // Mantener al menos 95% de la demanda
+                    iterator.remove();
+                    totalGeneration = generationWithoutThis;
+                }
+            }
         }
+
+        return adjusted;
     }
 
-    /**
-     * Obtiene la generación MW de una planta mediante downcasting
-     * @param plant La planta de la cual obtener la generación
-     * @return El valor de generación MW de la planta
-     */
-    private double getPlantGeneratedMW(PowerPlants plant) {
-        switch (plant.getClass().getSimpleName()) {
-            case "SolarPlant":
-                return ((SolarPlant) plant).getGeneratedMW();
-            case "WindPlant":
-                return ((WindPlant) plant).getGeneratedMW();
-            case "GeothermalPlant":
-                return ((GeothermalPlant) plant).getGeneratedMW();
-            case "HydroPlant":
-                return ((HydroPlant) plant).getGeneratedMW();
-            case "NuclearPlant":
-                return ((NuclearPlant) plant).getGeneratedMW();
-            case "CoalPlant":
-                return ((CoalPlant) plant).getGeneratedMW();
-            case "CombinedCyclePlant":
-                return ((CombinedCyclePlant) plant).getGeneratedMW();
-            case "FuelGasPlant":
-                return ((FuelGasPlant) plant).getGeneratedMW();
-            case "BiomassPlant":
-                return ((BiomassPlant) plant).getGeneratedMW();
-            default:
-                // Valor por defecto si el tipo no es reconocido
-                return 0.0;
+    private List<PowerPlants> adjustForStability(List<PowerPlants> selectedPlants, double demandMW) {
+        // Implementar lógica para ajustar selección manteniendo estabilidad >= 70%
+        // Esta es una implementación simplificada
+        List<PowerPlants> adjusted = new ArrayList<>(selectedPlants);
+
+        // Ordenar por estabilidad descendente
+        adjusted.sort((a, b) -> Double.compare(b.getStability(), a.getStability()));
+
+        // Reconstruir selección priorizando plantas con mayor estabilidad
+        List<PowerPlants> newSelection = new ArrayList<>();
+        double currentGeneration = 0;
+
+        for (PowerPlants plant : adjusted) {
+            newSelection.add(plant);
+            currentGeneration += plant.getMaxCapacityMW();
+
+            if (calculateWeightedStability(newSelection) >= MIN_STABILITY &&
+                    currentGeneration >= demandMW * 0.95) {
+                break;
+            }
         }
+
+        return newSelection;
     }
 
-    public LinkedList<Result> getSimulationResults(){
-
-        return this.results;
+    private double calculateTotalGeneration(List<PowerPlants> plants) {
+        return plants.stream().mapToDouble(PowerPlants::getMaxCapacityMW).sum();
     }
+
+    private double calculateWeightedStability(List<PowerPlants> plants) {
+        if (plants.isEmpty()) return 0;
+
+        double totalGeneration = calculateTotalGeneration(plants);
+        if (totalGeneration == 0) return 0;
+
+        double weightedStability = 0;
+        int index = 0;
+        for (PowerPlants plant : plants) {
+            double weight = plant.getMaxCapacityMW() / totalGeneration;
+            weightedStability += powerPlants.get(index).getStability() * weight;
+            index ++;
+        }
+
+        return weightedStability;
+    }
+
+    private Map<String, Double> calculateGenerationByType(List<PowerPlants> plants) {
+        Map<String, Double> generationByType = new HashMap<>();
+
+        for (PowerPlants plant : plants) {
+            String type = plant.getClass().getSimpleName().replace("Plant", "");
+            generationByType.merge(type, plant.getMaxCapacityMW(), Double::sum);
+        }
+
+        return generationByType;
+    }
+
     @Override
     public String toString() {
+        StringBuilder jsonBuilder = new StringBuilder();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        if (results == null) simulate();
+        jsonBuilder.append("[\n");
 
-        JSONArray jsonArray = new JSONArray();
-        for (Result result : results) {
-            JSONObject obj = new JSONObject();
-            obj.put("time", result.getTime().toString());
-            obj.put("generatedMW", result.getGeneratedMW());
-            obj.put("expectedDemandMW", result.getExpectedDemandMW());
-            obj.put("averageStability", result.getAverageStability());
+        for (int i = 0; i < results.size(); i++) {
+            Result result = results.get(i);
+            jsonBuilder.append("  {\n");
+            jsonBuilder.append("    \"minute\": ").append(i + 1).append(",\n");
+            jsonBuilder.append("    \"timestamp\": \"").append(result.getTime().format(formatter)).append("\",\n");
+            jsonBuilder.append("    \"generatedMW\": ").append(String.format("%.2f", result.getGeneratedMW())).append(",\n");
+            jsonBuilder.append("    \"expectedDemandMW\": ").append(String.format("%.2f", result.getExpectedDemandMW())).append(",\n");
+            jsonBuilder.append("    \"averageStability\": ").append(String.format("%.3f", result.getAverageStability())).append(",\n");
+            jsonBuilder.append("    \"generatedByType\": {\n");
 
-            Map<String, Double> generatedMap = result.getGeneratedByTypeMW();
+            Map<String, Double> genByType = result.getGeneratedByTypeMW();
+            int typeCount = 0;
+            for (Map.Entry<String, Double> entry : genByType.entrySet()) {
+                jsonBuilder.append("      \"").append(entry.getKey()).append("\": ")
+                        .append(String.format("%.2f", entry.getValue()));
+                if (++typeCount < genByType.size()) {
+                    jsonBuilder.append(",");
+                }
+                jsonBuilder.append("\n");
+            }
 
-            Optional.ofNullable(generatedMap)
-                    .map(map -> obj.put("generatedByTypeMW", new JSONObject(map)))
-                    .orElseGet(() -> obj.put("generatedByTypeMW", JSONObject.NULL));
-          /*  if (generatedMap != null) {
-                obj.put("generatedByTypeMW", new JSONObject(generatedMap));
-            } else {
-                obj.put("generatedByTypeMW", JSONObject.NULL);
-            }*/
-
-            jsonArray.put(obj);
+            jsonBuilder.append("    }\n");
+            jsonBuilder.append("  }");
+            if (i < results.size() - 1) {
+                jsonBuilder.append(",");
+            }
+            jsonBuilder.append("\n");
         }
 
-        return jsonArray.toString(0);
+        jsonBuilder.append("]");
+        return jsonBuilder.toString();
+    }
+
+    // Getters
+    public List<Result> getResults() {
+        return results;
+    }
+
+    public LocalDateTime getBlackoutStart() {
+        return blackoutStart;
     }
 }

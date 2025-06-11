@@ -1,5 +1,7 @@
 package edu.uoc.uoctron.model;
 
+import java.time.LocalTime;
+
 public abstract class PowerPlants {
     String type;
     String name;
@@ -8,6 +10,8 @@ public abstract class PowerPlants {
     String city;
     double maxCapacityMW;
     double efficiency;
+    LocalTime restartTime;
+    double stability;
 
     public PowerPlants (String type, String name, double latitude, double longitude, String city, double maxCapacityMW, double efficiency){
 
@@ -18,6 +22,7 @@ public abstract class PowerPlants {
         setCity(city);
         setMaxCapacityMW(maxCapacityMW);
         setEfficiency(efficiency);
+
     }
 
     public String getType() {
@@ -76,5 +81,19 @@ public abstract class PowerPlants {
         this.efficiency = efficiency;
     }
 
+    public LocalTime getRestartTime() {
+        return restartTime;
+    }
 
+    public void setRestartTime(LocalTime restartTime) {
+        this.restartTime = restartTime;
+    }
+
+    public double getStability() {
+        return stability;
+    }
+
+    public void setStability(double stability) {
+        this.stability = stability;
+    }
 }
