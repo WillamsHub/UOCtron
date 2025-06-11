@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 public class SimulationResults {
@@ -44,9 +45,63 @@ public class SimulationResults {
     }
 
     public void simulate() {
+        LocalTime currentTime = LocalTime.of(0,0);
+
+        for (int i=0; i< getDemandMinutes().size(); i++ ){
+            DemandMinute demandMinute = getDemandMinutes().get(i);
+
+            int offset = demandMinute.getTime().getMinute();
+            currentTime = currentTime.plusMinutes(offset);
+            LocalDateTime currentTimePlusOffset = blackoutStart.plusMinutes(offset);
+
+            double expectedDemand = getDemandForMinute(offset);
+            List<PowerPlants> availablePlants = getAvailablePlants(offset);
+
+            PlantSelection selection = selectOptimalPlants(availablePlants, expectedDemand,offset, currentTime);
+
+            Result result = new Result(
+                    currentTimePlusOffset,
+                    selection.totalGenerated,
+                    expectedDemand,
+                    selection.averageStability,
+                    selection.generatedByType
+            );
+
+            if (result.getAverageStability() >= 0.7) {
+
+                this.results.add(result);
+            }
+        }
+
+       /* getDemandMinutes().forEach(
+                demandMinute -> {
+                    int offset = demandMinute.getTime().getMinute();
+                    currentTime = currentTime.plusMinutes(offset);
+                    LocalDateTime currentTimePlusOffset = blackoutStart.plusMinutes(offset);
+
+                    double expectedDemand = getDemandForMinute(offset);
+                    List<PowerPlants> availablePlants = getAvailablePlants(offset);
+
+                    PlantSelection selection = selectOptimalPlants(availablePlants, expectedDemand,offset, currentTime, currentTimePlusOffset);
+
+                    Result result = new Result(
+                            currentTimePlusOffset,
+                            selection.totalGenerated,
+                            expectedDemand,
+                            selection.averageStability,
+                            selection.generatedByType
+                    );
+
+                    if (result.getAverageStability() >= 0.7) {
+
+                        this.results.add(result);
+                    }
 
 
-        for (int minuteOffset = 0; minuteOffset < 2160; minuteOffset++) {
+                }
+        );*/
+
+        /*for (int minuteOffset = 0; minuteOffset < 2160; minuteOffset++) {
             LocalDateTime currentTime = blackoutStart.plusMinutes(minuteOffset);
 
             double expectedDemand = getDemandForMinute(minuteOffset);
@@ -64,7 +119,7 @@ public class SimulationResults {
             );
 
             this.results.add(result);
-        }
+        }*/
 
     }
 
@@ -107,9 +162,10 @@ public class SimulationResults {
         };
     }
 
-    private PlantSelection selectOptimalPlants(List<PowerPlants> availablePlants, double demandMW, int minuteOffset) {
+    private PlantSelection selectOptimalPlants(List<PowerPlants> availablePlants, double demandMW, int minuteOffset,LocalTime currentTime) {
         // Ordenar plantas por prioridad: Solar/Wind -> Nuclear -> Coal/FuelGas
         List<PowerPlants> sortedPlants = new ArrayList<>(availablePlants);
+      
         sortedPlants.sort(this::comparePlantPriority);
 
         PlantSelection selection = new PlantSelection();
@@ -150,26 +206,16 @@ public class SimulationResults {
     }
 
     private int getPlantPriority(PowerPlants plant) {
-        switch (plant.getClass().getSimpleName()) {
-            case "SolarPlant":
-            case "WindPlant":
-                return 1;
-            case "GeothermalPlant":
-            case "HydroPlant":
-                return 2;
-            case "NuclearPlant":
-                return 3;
-            case "CombinedCyclePlant":
-                return 4;
-            case "FuelGasPlant":
-                return 5;
-            case "BiomassPlant":
-                return 6;
-            case "CoalPlant":
-                return 7;
-            default:
-                return 8;
-        }
+        return switch (plant.getClass().getSimpleName()) {
+            case "SolarPlant", "WindPlant" -> 1;
+            case "GeothermalPlant", "HydroPlant" -> 2;
+            case "NuclearPlant" -> 3;
+            case "CombinedCyclePlant" -> 4;
+            case "FuelGasPlant" -> 5;
+            case "BiomassPlant" -> 6;
+            case "CoalPlant" -> 7;
+            default -> 8;
+        };
     }
 
     private static class PlantSelection {
