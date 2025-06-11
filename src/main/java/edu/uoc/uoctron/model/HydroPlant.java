@@ -35,9 +35,6 @@ public class HydroPlant extends PowerPlants{
     public double getStability(){
         return STABILITY;
     }
-    public void setMaxCapacityMW(double maxCapacityMW){
-        this.maxCapacityMW = maxCapacityMW;
-    }
 
     public double getGeneratedMW() {
         return maxCapacityMW;
@@ -51,6 +48,10 @@ public class HydroPlant extends PowerPlants{
         json.put("finish_operation_hour", getFinishOperationHour());
         json.put("restart_time", getRestartTime());
         json.put("stability", getStability());
+
+        String type = json.getString("type") + "electric";
+        json.put("type", type);
+
         return json.toString(2);
     }
 

@@ -38,9 +38,6 @@ public class CombinedCyclePlant extends PowerPlants{
     public String getElementBurned(){
         return ELEMENT_BURNED;
     }
-    public void setMaxCapacityMW(double maxCapacityMW){
-        this.maxCapacityMW = maxCapacityMW;
-    }
 
     public double getGeneratedMW() {
         return maxCapacityMW;

@@ -35,9 +35,6 @@ public class GeothermalPlant extends PowerPlants{
     public double getStability(){
         return STABILITY;
     }
-    public void setMaxCapacityMW(double maxCapacityMW){
-        this.maxCapacityMW = maxCapacityMW;
-    }
 
     public double getGeneratedMW() {
         return maxCapacityMW;
