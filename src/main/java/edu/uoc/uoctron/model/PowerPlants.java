@@ -1,5 +1,8 @@
 package edu.uoc.uoctron.model;
 
+import edu.uoc.uoctron.utils.Utils;
+import org.json.JSONObject;
+
 public abstract class PowerPlants {
     String type;
     String name;
@@ -76,5 +79,16 @@ public abstract class PowerPlants {
         this.efficiency = efficiency;
     }
 
+    protected JSONObject toJSONObject() {
+        JSONObject json = new JSONObject();
+        json.put("name", getName());
+        json.put("type", Utils.toCapitalizedSentence(getType()));
+        json.put("latitude", getLatitude());
+        json.put("longitude", getLongitude());
+        json.put("city", getCity());
+        json.put("maxCapacityMW", getMaxCapacityMW());
+        json.put("efficiency", getEfficiency());
+        return json;
+    }
 
 }

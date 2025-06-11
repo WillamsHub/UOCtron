@@ -50,7 +50,7 @@ public class SimulationResults {
         for (int i=0; i< getDemandMinutes().size(); i++ ){
             DemandMinute demandMinute = getDemandMinutes().get(i);
 
-            int offset = demandMinute.getTime().getMinute();
+            int offset = demandMinute.getMinute();
             currentTime = currentTime.plusMinutes(offset);
             LocalDateTime currentTimePlusOffset = blackoutStart.plusMinutes(offset);
 
