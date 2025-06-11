@@ -29,9 +29,14 @@ public class SimulationResults {
 
     public List<Result> simulate() {
         results.clear();
-        this.currentTime = blackoutStart;
+        LocalDateTime currentTime = blackoutStart;
+        int demandIndex = 0;
 
-        for (DemandMinute demand : demandMinutes) {
+        // Simular 36 horas (2160 minutos)
+        for (int minute = 0; minute < 2160; minute++) {
+            // Obtener la demanda actual, ciclando a través de las 24 horas (1440 minutos)
+            DemandMinute demand = demandMinutes.get(demandIndex);
+
             // Filtrar plantas disponibles para este momento
             List<PowerPlants> availablePlants = getAvailablePlants(currentTime);
 
@@ -49,6 +54,9 @@ public class SimulationResults {
 
             // Avanzar al siguiente minuto
             currentTime = currentTime.plusMinutes(1);
+
+            // Avanzar el índice de demanda y reiniciar al principio después de 1440 minutos (24 horas)
+            demandIndex = (demandIndex + 1) % 1440;
         }
 
         return results;
